@@ -12,23 +12,12 @@
 
 #include "minitalk.h"
 
-static void	print_usage(void);
+static volatile int g_signal_flag = 0;
 
-int	main(int argc, char **argv)
+static void set_signal_flag(int signal)
 {
-	struct sigaction	s_sigaction;
-	pid_t				server_pid;
-
-	if (argc != 3)
-		print_usage();
-	server_pid = ft_atoi(argv[1]);
-	if (server_pid <= 0 || kill(server_pid, 0) == -1)
-		return (1);
-	sigemptyset(&s_sigaction.sa_mask);
-	s_sigaction.sa_flags = 0;
-	if (sigaction(SIGUSR1, &s_sigaction, NULL) == -1)
-		return (1);
-	return (0);
+	if (signal == SIGUSR1)
+		g_signal_flag = 1;
 }
 
 void	send_signal(pid_t pid, unsigned char c)
@@ -38,11 +27,14 @@ void	send_signal(pid_t pid, unsigned char c)
 	i = 0;
 	while (i < 8)
 	{
-		if ((c >> i) & 1)
+		g_signal_flag = 0;
+		if (((c >> i) & 1) == 1)
 			kill(pid, SIGUSR1);
 		else
 			kill(pid, SIGUSR2);
 		i++;
+		while (g_signal_flag == 0)
+			pause();
 	}
 }
 
@@ -51,4 +43,30 @@ static void	print_usage(void)
 	ft_printf("Wrong number of arguments...\n");
 	ft_printf("Usage: ./client <SERVER_PID> <MESSAGE_STRING>\n");
 	exit(0);
+}
+
+int	main(int argc, char **argv)
+{
+	struct sigaction	s_sigaction;
+	pid_t				server_pid;
+	int					i;
+
+	if (argc != 3)
+		print_usage();
+	server_pid = ft_atoi(argv[1]);
+	if (server_pid <= 0 || kill(server_pid, 0) == -1)
+		return (1);
+	sigemptyset(&s_sigaction.sa_mask);
+	s_sigaction.sa_flags = 0;
+	s_sigaction.sa_handler = set_signal_flag;
+	if (sigaction(SIGUSR1, &s_sigaction, NULL) == -1)
+		return (1);
+	i = 0;
+	while (argv[2][i])
+	{
+		send_signal(server_pid, (unsigned char)argv[2][i]);
+		i++;
+	}
+	send_signal(server_pid, '\0');
+	return (0);
 }
