@@ -23,4 +23,11 @@
 # include <stdlib.h>
 # include <unistd.h>
 
+typedef struct s_signal
+{
+	unsigned char	current_char;
+	int				client_pid;
+	int				bits_received;
+}					t_signal;
+
 #endif
